@@ -1,0 +1,287 @@
+---
+title: "Prediction of good exercise technique"
+author: "Sandeep"
+date: "Saturday, July 01, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+##Executive summary
+The purpose of this document is to predict correct exercise technique using data collected from accelerometers on the belt, forearm, arm, and dumbell. The data has been collected for 6 differrent participants and given to us in the form of a training set.  
+The goal is to predict the manner in which they did the exercise. is is the "classe" variable in the training set. This variable represents Unilateral Dumbbell Biceps Curl exercise in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.  
+
+We will use the other variables in the training set to predict the classe variable. We will create a report describing the following:  
+1. How the model was built.  
+2. How cross validation was performed.  
+3. What is the expected out of sample error.  
+4. What is the prediction for 20 different test cases in the provided test set.  
+
+##Design approach
+We will use the following steps to achieve our goals:  
+1. Load the training set and explore basic information.  
+2. Perform basic pre processing on the dataset.  
+3. Split into training/test sets.  
+4. Build model on the training set.  
+5. Perform cross validation on the test set.  
+6. Determine out of sample error.  
+7. Perform prediction on different test set containing 20 cases.  
+
+##Load dataset
+The csv file for the training set was downloaded onto local machine from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv. Following code will load this dataset into memory and print the dimensions:
+```{r}
+train <- read.csv("C:/Users/Sandeep/Documents/pml-training.csv")
+dim(train)
+```
+This dataset has accelerometer information from belt, arm, forearm and dumbbell sensors. Lets try to perform a simple prediction of the classe variable using a boxplot with the total acceleration from the 4 sensors as the predictor.
+```{r}
+library(ggplot2)
+qplot(classe,total_accel_belt+total_accel_arm+total_accel_forearm+total_accel_dumbbell,data=train,fill=classe,geom="boxplot")
+```
+
+From the plot, we see similar patterns for different levels of classe variable. Hence we are compelled to build a prediction model in order to arrive at a prediction.
+
+##Basic preprocessing
+For this task, we shall first analyze the dataset for missing values. 
+```{r message=FALSE}
+mat1 <- apply(train,2,is.na)
+vect1 <- apply(mat1,2,sum)
+qplot(vect1/nrow(train),geom="histogram")
+```
+
+From the plot, we observe that the columns containing missing values have close to 100% of its values missing. Hence, we will ignore these columns and only include the columns that have no missing values. 
+```{r}
+names(vect1) <- names(train)
+vect2 <- vect1[vect1==0]
+train1 <- train[,names(vect2)]
+```
+Next, we shall analyze the dataset for variables that have near zero variance and exclude them from the dataset.
+```{r message=FALSE}
+library(caret)
+nzv <- nearZeroVar(train1,saveMetrics=TRUE)
+nzv1 <- nzv[nzv$nzv==TRUE,]
+vect3 <- match(rownames(nzv1),colnames(train1))
+train2 <- train1[,-vect3]
+```
+
+##Splitting datasets
+We will now split the dataset into training and testing datsets for model building and cross validation respectively.
+```{r}
+set.seed(1)
+inTrain <- createDataPartition(y=train2$classe,p=0.7,list=FALSE)
+training <- train2[inTrain,]
+testing <- train2[-inTrain,]
+```
+
+##Model building
+Since random forest is considered one of the top performing prediction algorithms, we will use the same for model building.  
+We also noticed earlier from the dimensions, that the dataset has a large number of rows & columns which will cause the execution to run long. We could potentially divide the rows of the dataset by the user name and the columns by belt, forearm, arm, and dumbell data. Lets check this with the following code:
+```{r}
+table(training$user_name)
+length(grep("_belt",names(training)))
+length(grep("_arm",names(training)))
+length(grep("_forearm",names(training)))
+length(grep("_dumbbell",names(training)))
+```
+From the above, we see that we can process the datasets in multiple iterations of approximately 2000 rows and 13 columns and then combine the predictions so as to achieve a better performance. Hence, lets proceed to model building with following code:
+```{r}
+library(randomForest)
+belt_names <- grep("_belt",names(training),value=TRUE)
+train_belt_adelmo <- training[training$user_name=="adelmo",c(belt_names,"classe")]
+fit_belt_adelmo <- train(classe~.,method="rf",data=train_belt_adelmo)
+train_belt_carlitos <- training[training$user_name=="carlitos",c(belt_names,"classe")]
+fit_belt_carlitos <- train(classe~.,method="rf",data=train_belt_carlitos)
+train_belt_charles <- training[training$user_name=="charles",c(belt_names,"classe")]
+fit_belt_charles <- train(classe~.,method="rf",data=train_belt_charles)
+train_belt_eurico <- training[training$user_name=="eurico",c(belt_names,"classe")]
+fit_belt_eurico <- train(classe~.,method="rf",data=train_belt_eurico)
+train_belt_jeremy <- training[training$user_name=="jeremy",c(belt_names,"classe")]
+fit_belt_jeremy <- train(classe~.,method="rf",data=train_belt_jeremy)
+train_belt_pedro <- training[training$user_name=="pedro",c(belt_names,"classe")]
+fit_belt_pedro <- train(classe~.,method="rf",data=train_belt_pedro)
+arm_names <- grep("_arm",names(training),value=TRUE)
+train_arm_adelmo <- training[training$user_name=="adelmo",c(arm_names,"classe")]
+fit_arm_adelmo <- train(classe~.,method="rf",data=train_arm_adelmo)
+train_arm_carlitos <- training[training$user_name=="carlitos",c(arm_names,"classe")]
+fit_arm_carlitos <- train(classe~.,method="rf",data=train_arm_carlitos)
+train_arm_charles <- training[training$user_name=="charles",c(arm_names,"classe")]
+fit_arm_charles <- train(classe~.,method="rf",data=train_arm_charles)
+train_arm_eurico <- training[training$user_name=="eurico",c(arm_names,"classe")]
+fit_arm_eurico <- train(classe~.,method="rf",data=train_arm_eurico)
+train_arm_jeremy <- training[training$user_name=="jeremy",c(arm_names,"classe")]
+fit_arm_jeremy <- train(classe~.,method="rf",data=train_arm_jeremy)
+train_arm_pedro <- training[training$user_name=="pedro",c(arm_names,"classe")]
+fit_arm_pedro <- train(classe~.,method="rf",data=train_arm_pedro)
+forearm_names <- grep("_forearm",names(training),value=TRUE)
+train_forearm_adelmo <- training[training$user_name=="adelmo",c(forearm_names,"classe")]
+fit_forearm_adelmo <- train(classe~.,method="rf",data=train_forearm_adelmo)
+train_forearm_carlitos <- training[training$user_name=="carlitos",c(forearm_names,"classe")]
+fit_forearm_carlitos <- train(classe~.,method="rf",data=train_forearm_carlitos)
+train_forearm_charles <- training[training$user_name=="charles",c(forearm_names,"classe")]
+fit_forearm_charles <- train(classe~.,method="rf",data=train_forearm_charles)
+train_forearm_eurico <- training[training$user_name=="eurico",c(forearm_names,"classe")]
+fit_forearm_eurico <- train(classe~.,method="rf",data=train_forearm_eurico)
+train_forearm_jeremy <- training[training$user_name=="jeremy",c(forearm_names,"classe")]
+fit_forearm_jeremy <- train(classe~.,method="rf",data=train_forearm_jeremy)
+train_forearm_pedro <- training[training$user_name=="pedro",c(forearm_names,"classe")]
+fit_forearm_pedro <- train(classe~.,method="rf",data=train_forearm_pedro)
+dumbbell_names <- grep("_dumbbell",names(training),value=TRUE)
+train_dumbbell_adelmo <- training[training$user_name=="adelmo",c(dumbbell_names,"classe")]
+fit_dumbbell_adelmo <- train(classe~.,method="rf",data=train_dumbbell_adelmo)
+train_dumbbell_carlitos <- training[training$user_name=="carlitos",c(dumbbell_names,"classe")]
+fit_dumbbell_carlitos <- train(classe~.,method="rf",data=train_dumbbell_carlitos)
+train_dumbbell_charles <- training[training$user_name=="charles",c(dumbbell_names,"classe")]
+fit_dumbbell_charles <- train(classe~.,method="rf",data=train_dumbbell_charles)
+train_dumbbell_eurico <- training[training$user_name=="eurico",c(dumbbell_names,"classe")]
+fit_dumbbell_eurico <- train(classe~.,method="rf",data=train_dumbbell_eurico)
+train_dumbbell_jeremy <- training[training$user_name=="jeremy",c(dumbbell_names,"classe")]
+fit_dumbbell_jeremy <- train(classe~.,method="rf",data=train_dumbbell_jeremy)
+train_dumbbell_pedro <- training[training$user_name=="pedro",c(dumbbell_names,"classe")]
+fit_dumbbell_pedro <- train(classe~.,method="rf",data=train_dumbbell_pedro)
+```
+
+##Cross validation
+We have got 6 (users) * 4 (sensors) = 24 models from the above set. Lets proceed to apply these models to the testing set and create a combined prediction model. Following is the code:
+```{r}
+test_belt_adelmo <- testing[testing$user_name=="adelmo",c(belt_names,"classe")]
+pred_belt_adelmo <- data.frame(pred_belt=predict(fit_belt_adelmo,test_belt_adelmo))
+test_belt_carlitos <- testing[testing$user_name=="carlitos",c(belt_names,"classe")]
+pred_belt_carlitos <- data.frame(pred_belt=predict(fit_belt_carlitos,test_belt_carlitos))
+test_belt_charles <- testing[testing$user_name=="charles",c(belt_names,"classe")]
+pred_belt_charles <- data.frame(pred_belt=predict(fit_belt_charles,test_belt_charles))
+test_belt_eurico <- testing[testing$user_name=="eurico",c(belt_names,"classe")]
+pred_belt_eurico <- data.frame(pred_belt=predict(fit_belt_eurico,test_belt_eurico))
+test_belt_jeremy <- testing[testing$user_name=="jeremy",c(belt_names,"classe")]
+pred_belt_jeremy <- data.frame(pred_belt=predict(fit_belt_jeremy,test_belt_jeremy))
+test_belt_pedro <- testing[testing$user_name=="pedro",c(belt_names,"classe")]
+pred_belt_pedro <- data.frame(pred_belt=predict(fit_belt_pedro,test_belt_pedro))
+test_arm_adelmo <- testing[testing$user_name=="adelmo",c(arm_names,"classe")]
+pred_arm_adelmo <- data.frame(pred_arm=predict(fit_arm_adelmo,test_arm_adelmo))
+test_arm_carlitos <- testing[testing$user_name=="carlitos",c(arm_names,"classe")]
+pred_arm_carlitos <- data.frame(pred_arm=predict(fit_arm_carlitos,test_arm_carlitos))
+test_arm_charles <- testing[testing$user_name=="charles",c(arm_names,"classe")]
+pred_arm_charles <- data.frame(pred_arm=predict(fit_arm_charles,test_arm_charles))
+test_arm_eurico <- testing[testing$user_name=="eurico",c(arm_names,"classe")]
+pred_arm_eurico <- data.frame(pred_arm=predict(fit_arm_eurico,test_arm_eurico))
+test_arm_jeremy <- testing[testing$user_name=="jeremy",c(arm_names,"classe")]
+pred_arm_jeremy <- data.frame(pred_arm=predict(fit_arm_jeremy,test_arm_jeremy))
+test_arm_pedro <- testing[testing$user_name=="pedro",c(arm_names,"classe")]
+pred_arm_pedro <- data.frame(pred_arm=predict(fit_arm_pedro,test_arm_pedro))
+test_forearm_adelmo <- testing[testing$user_name=="adelmo",c(forearm_names,"classe")]
+pred_forearm_adelmo <- data.frame(pred_forearm=predict(fit_forearm_adelmo,test_forearm_adelmo))
+test_forearm_carlitos <- testing[testing$user_name=="carlitos",c(forearm_names,"classe")]
+pred_forearm_carlitos <- data.frame(pred_forearm=predict(fit_forearm_carlitos,test_forearm_carlitos))
+test_forearm_charles <- testing[testing$user_name=="charles",c(forearm_names,"classe")]
+pred_forearm_charles <- data.frame(pred_forearm=predict(fit_forearm_charles,test_forearm_charles))
+test_forearm_eurico <- testing[testing$user_name=="eurico",c(forearm_names,"classe")]
+pred_forearm_eurico <- data.frame(pred_forearm=predict(fit_forearm_eurico,test_forearm_eurico))
+test_forearm_jeremy <- testing[testing$user_name=="jeremy",c(forearm_names,"classe")]
+pred_forearm_jeremy <- data.frame(pred_forearm=predict(fit_forearm_jeremy,test_forearm_jeremy))
+test_forearm_pedro <- testing[testing$user_name=="pedro",c(forearm_names,"classe")]
+pred_forearm_pedro <- data.frame(pred_forearm=predict(fit_forearm_pedro,test_forearm_pedro))
+test_dumbbell_adelmo <- testing[testing$user_name=="adelmo",c(dumbbell_names,"classe")]
+pred_dumbbell_adelmo <- data.frame(pred_dumbbell=predict(fit_dumbbell_adelmo,test_dumbbell_adelmo))
+test_dumbbell_carlitos <- testing[testing$user_name=="carlitos",c(dumbbell_names,"classe")]
+pred_dumbbell_carlitos <- data.frame(pred_dumbbell=predict(fit_dumbbell_carlitos,test_dumbbell_carlitos))
+test_dumbbell_charles <- testing[testing$user_name=="charles",c(dumbbell_names,"classe")]
+pred_dumbbell_charles <- data.frame(pred_dumbbell=predict(fit_dumbbell_charles,test_dumbbell_charles))
+test_dumbbell_eurico <- testing[testing$user_name=="eurico",c(dumbbell_names,"classe")]
+pred_dumbbell_eurico <- data.frame(pred_dumbbell=predict(fit_dumbbell_eurico,test_dumbbell_eurico))
+test_dumbbell_jeremy <- testing[testing$user_name=="jeremy",c(dumbbell_names,"classe")]
+pred_dumbbell_jeremy <- data.frame(pred_dumbbell=predict(fit_dumbbell_jeremy,test_dumbbell_jeremy))
+test_dumbbell_pedro <- testing[testing$user_name=="pedro",c(dumbbell_names,"classe")]
+pred_dumbbell_pedro <- data.frame(pred_dumbbell=predict(fit_dumbbell_pedro,test_dumbbell_pedro))
+predDF_adelmo <- cbind(pred_belt_adelmo,pred_arm_adelmo,pred_forearm_adelmo,pred_dumbbell_adelmo)
+predDF_carlitos <- cbind(pred_belt_carlitos,pred_arm_carlitos,pred_forearm_carlitos,pred_dumbbell_carlitos)
+predDF_charles <- cbind(pred_belt_charles,pred_arm_charles,pred_forearm_charles,pred_dumbbell_charles)
+predDF_eurico <- cbind(pred_belt_eurico,pred_arm_eurico,pred_forearm_eurico,pred_dumbbell_eurico)
+predDF_jeremy <- cbind(pred_belt_jeremy,pred_arm_jeremy,pred_forearm_jeremy,pred_dumbbell_jeremy)
+predDF_pedro <- cbind(pred_belt_pedro,pred_arm_pedro,pred_forearm_pedro,pred_dumbbell_pedro)
+testDF_adelmo <- data.frame(classe=testing[testing$user_name=="adelmo","classe"])
+testDF_carlitos <- data.frame(classe=testing[testing$user_name=="carlitos","classe"])
+testDF_charles <- data.frame(classe=testing[testing$user_name=="charles","classe"])
+testDF_eurico <- data.frame(classe=testing[testing$user_name=="eurico","classe"])
+testDF_jeremy <- data.frame(classe=testing[testing$user_name=="jeremy","classe"])
+testDF_pedro <- data.frame(classe=testing[testing$user_name=="pedro","classe"])
+predDF <- rbind(predDF_adelmo,predDF_carlitos,predDF_charles,predDF_eurico,predDF_jeremy,predDF_pedro)
+testDF <- rbind(testDF_adelmo,testDF_carlitos,testDF_charles,testDF_eurico,testDF_jeremy,testDF_pedro)
+combDF <- cbind(predDF,testDF)
+comb_fit <- train(classe~.,method="rf",data=combDF)
+```
+
+##Out of sample error
+We will use Accuracy as a measure of out of sample error. For this, we create the confusion matrix as below:
+```{r}
+confusionMatrix(combDF$classe,predict(comb_fit,combDF))
+```
+From the above, we observe accuracy as 98.56%.
+
+##Final prediction
+We have got 6 (users) * 4 (sensors) = 24 models from model building and 1 combined model from cross validation. Lets apply this to the test set downloaded from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv to arrive at the final prediction:
+```{r}
+test <- read.csv("C:/Users/Sandeep/Documents/pml-testing.csv")
+test_belt_adelmo <- test[test$user_name=="adelmo",c(belt_names)]
+pred_belt_adelmo <- data.frame(pred_belt=predict(fit_belt_adelmo,test_belt_adelmo))
+test_belt_carlitos <- test[test$user_name=="carlitos",c(belt_names)]
+pred_belt_carlitos <- data.frame(pred_belt=predict(fit_belt_carlitos,test_belt_carlitos))
+test_belt_charles <- test[test$user_name=="charles",c(belt_names)]
+pred_belt_charles <- data.frame(pred_belt=predict(fit_belt_charles,test_belt_charles))
+test_belt_eurico <- test[test$user_name=="eurico",c(belt_names)]
+pred_belt_eurico <- data.frame(pred_belt=predict(fit_belt_eurico,test_belt_eurico))
+test_belt_jeremy <- test[test$user_name=="jeremy",c(belt_names)]
+pred_belt_jeremy <- data.frame(pred_belt=predict(fit_belt_jeremy,test_belt_jeremy))
+test_belt_pedro <- test[test$user_name=="pedro",c(belt_names)]
+pred_belt_pedro <- data.frame(pred_belt=predict(fit_belt_pedro,test_belt_pedro))
+test_arm_adelmo <- test[test$user_name=="adelmo",c(arm_names)]
+pred_arm_adelmo <- data.frame(pred_arm=predict(fit_arm_adelmo,test_arm_adelmo))
+test_arm_carlitos <- test[test$user_name=="carlitos",c(arm_names)]
+pred_arm_carlitos <- data.frame(pred_arm=predict(fit_arm_carlitos,test_arm_carlitos))
+test_arm_charles <- test[test$user_name=="charles",c(arm_names)]
+pred_arm_charles <- data.frame(pred_arm=predict(fit_arm_charles,test_arm_charles))
+test_arm_eurico <- test[test$user_name=="eurico",c(arm_names)]
+pred_arm_eurico <- data.frame(pred_arm=predict(fit_arm_eurico,test_arm_eurico))
+test_arm_jeremy <- test[test$user_name=="jeremy",c(arm_names)]
+pred_arm_jeremy <- data.frame(pred_arm=predict(fit_arm_jeremy,test_arm_jeremy))
+test_arm_pedro <- test[test$user_name=="pedro",c(arm_names)]
+pred_arm_pedro <- data.frame(pred_arm=predict(fit_arm_pedro,test_arm_pedro))
+test_forearm_adelmo <- test[test$user_name=="adelmo",c(forearm_names)]
+pred_forearm_adelmo <- data.frame(pred_forearm=predict(fit_forearm_adelmo,test_forearm_adelmo))
+test_forearm_carlitos <- test[test$user_name=="carlitos",c(forearm_names)]
+pred_forearm_carlitos <- data.frame(pred_forearm=predict(fit_forearm_carlitos,test_forearm_carlitos))
+test_forearm_charles <- test[test$user_name=="charles",c(forearm_names)]
+pred_forearm_charles <- data.frame(pred_forearm=predict(fit_forearm_charles,test_forearm_charles))
+test_forearm_eurico <- test[test$user_name=="eurico",c(forearm_names)]
+pred_forearm_eurico <- data.frame(pred_forearm=predict(fit_forearm_eurico,test_forearm_eurico))
+test_forearm_jeremy <- test[test$user_name=="jeremy",c(forearm_names)]
+pred_forearm_jeremy <- data.frame(pred_forearm=predict(fit_forearm_jeremy,test_forearm_jeremy))
+test_forearm_pedro <- test[test$user_name=="pedro",c(forearm_names)]
+pred_forearm_pedro <- data.frame(pred_forearm=predict(fit_forearm_pedro,test_forearm_pedro))
+test_dumbbell_adelmo <- test[test$user_name=="adelmo",c(dumbbell_names)]
+pred_dumbbell_adelmo <- data.frame(pred_dumbbell=predict(fit_dumbbell_adelmo,test_dumbbell_adelmo))
+test_dumbbell_carlitos <- test[test$user_name=="carlitos",c(dumbbell_names)]
+pred_dumbbell_carlitos <- data.frame(pred_dumbbell=predict(fit_dumbbell_carlitos,test_dumbbell_carlitos))
+test_dumbbell_charles <- test[test$user_name=="charles",c(dumbbell_names)]
+pred_dumbbell_charles <- data.frame(pred_dumbbell=predict(fit_dumbbell_charles,test_dumbbell_charles))
+test_dumbbell_eurico <- test[test$user_name=="eurico",c(dumbbell_names)]
+pred_dumbbell_eurico <- data.frame(pred_dumbbell=predict(fit_dumbbell_eurico,test_dumbbell_eurico))
+test_dumbbell_jeremy <- test[test$user_name=="jeremy",c(dumbbell_names)]
+pred_dumbbell_jeremy <- data.frame(pred_dumbbell=predict(fit_dumbbell_jeremy,test_dumbbell_jeremy))
+test_dumbbell_pedro <- test[test$user_name=="pedro",c(dumbbell_names)]
+pred_dumbbell_pedro <- data.frame(pred_dumbbell=predict(fit_dumbbell_pedro,test_dumbbell_pedro))
+predDF_adelmo <- cbind(pred_belt_adelmo,pred_arm_adelmo,pred_forearm_adelmo,pred_dumbbell_adelmo)
+predDF_carlitos <- cbind(pred_belt_carlitos,pred_arm_carlitos,pred_forearm_carlitos,pred_dumbbell_carlitos)
+predDF_charles <- cbind(pred_belt_charles,pred_arm_charles,pred_forearm_charles,pred_dumbbell_charles)
+predDF_eurico <- cbind(pred_belt_eurico,pred_arm_eurico,pred_forearm_eurico,pred_dumbbell_eurico)
+predDF_jeremy <- cbind(pred_belt_jeremy,pred_arm_jeremy,pred_forearm_jeremy,pred_dumbbell_jeremy)
+predDF_pedro <- cbind(pred_belt_pedro,pred_arm_pedro,pred_forearm_pedro,pred_dumbbell_pedro)
+probDF_adelmo <- data.frame(problem_id=test[test$user_name=="adelmo","problem_id"])
+probDF_carlitos <- data.frame(problem_id=test[test$user_name=="carlitos","problem_id"])
+probDF_charles <- data.frame(problem_id=test[test$user_name=="charles","problem_id"])
+probDF_eurico <- data.frame(problem_id=test[test$user_name=="eurico","problem_id"])
+probDF_jeremy <- data.frame(problem_id=test[test$user_name=="jeremy","problem_id"])
+probDF_pedro <- data.frame(problem_id=test[test$user_name=="pedro","problem_id"])
+predDF <- rbind(predDF_adelmo,predDF_carlitos,predDF_charles,predDF_eurico,predDF_jeremy,predDF_pedro)
+probDF <- rbind(probDF_adelmo,probDF_carlitos,probDF_charles,probDF_eurico,probDF_jeremy,probDF_pedro)
+final_prediction <- cbind(probDF,data.frame(prediction=predict(comb_fit,predDF)))
+print.data.frame(final_prediction[order(final_prediction$problem_id),],row.names=FALSE)
+``` 
